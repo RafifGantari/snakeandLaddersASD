@@ -1,8 +1,6 @@
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -13,207 +11,201 @@ public class GameFrame extends JFrame {
     private Board board;
     private JPanel sidePanel;
     private JPanel playerListPanel;
-    
+
     private JButton rollButton;
     private JLabel diceResultLabel;
     private JLabel diceInfoLabel;
     private JLabel turnLabel;
-    
-    // Label baru untuk Hint Dijkstra
-    private JLabel hintLabel; 
 
     private List<Player> players;
-    private int currentPlayerIndex = 0; 
-    private boolean isAnimating = false; 
-    private boolean canClimbLadder = false;
+    private int currentPlayerIndex = 0;
+    private boolean isAnimating = false;
 
-    public GameFrame(int totalPlayers) {
-        setTitle("Snake & Ladders - AI Assistant (Dijkstra)");
-        setSize(1000, 750); // Tinggi ditambah sedikit
+    // STATUS IZIN NAIK TANGGA (Aturan Prima)
+    private boolean canClimbCurrentTurn = false;
+
+    public GameFrame(List<String> playerNames) {
+        setTitle("Snake & Ladders - Prime Rules Edition");
+        setSize(1100, 900);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        SoundManager.play("start.wav");
+        // Audio (Aman jika file tidak ada)
+        SoundManager.playBackground("./assets/bgm.wav");
+        SoundManager.play("./assets/start.wav");
 
-        initPlayersLogic(totalPlayers);
+        initPlayersLogic(playerNames);
 
         board = new Board();
         boardPanel = new BoardPanel(board);
-        add(boardPanel, BorderLayout.CENTER);
+
+        // --- NEW: use VideoBackgroundPanel with animated GIF ---
+        VideoBackgroundPanel bgPanel = new VideoBackgroundPanel("./assets/background.gif");
+        // ensure board panel is transparent so background shows through where appropriate
+        boardPanel.setOpaque(false);
+        bgPanel.addForeground(boardPanel);
+
+        add(bgPanel, BorderLayout.CENTER);
 
         sidePanel = createSidePanel();
         add(sidePanel, BorderLayout.EAST);
-        
-        updateTurnUI(); // Ini akan memicu perhitungan Dijkstra awal
+
+        updateTurnUI();
         boardPanel.setPlayers(players);
 
         setLocationRelativeTo(null);
         setVisible(true);
     }
 
-    private void initPlayersLogic(int amount) {
+    private void initPlayersLogic(List<String> names) {
         players = new ArrayList<>();
         Color[] colors = {
-            new Color(231, 76, 60), new Color(52, 152, 219),
-            new Color(46, 204, 113), new Color(241, 196, 15),
-            new Color(155, 89, 182), new Color(230, 126, 34)
+            new Color(231, 76, 60),
+            new Color(41, 128, 185),
+            new Color(39, 174, 96),
+            new Color(243, 156, 18),
+            new Color(142, 68, 173),
+            new Color(211, 84, 0)
         };
-        for (int i = 0; i < amount; i++) {
-            players.add(new Player(i + 1, colors[i]));
+
+        for (int i = 0; i < names.size(); i++) {
+            players.add(new Player(i + 1, names.get(i), colors[i % colors.length]));
         }
     }
 
     private JPanel createSidePanel() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setPreferredSize(new Dimension(280, 0));
-        panel.setBackground(new Color(248, 249, 250));
-        panel.setBorder(new EmptyBorder(20, 20, 20, 20));
+        panel.setPreferredSize(new Dimension(320, 0));
+        panel.setBackground(new Color(248, 250, 252));
+        panel.setBorder(new EmptyBorder(30, 30, 30, 30));
 
-        JLabel title = new JLabel("GAME CONTROL");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        JLabel title = new JLabel("CONTROLS");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        title.setForeground(new Color(44, 62, 80));
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
         panel.add(title);
-        panel.add(Box.createRigidArea(new Dimension(0, 20)));
+        panel.add(Box.createRigidArea(new Dimension(0, 25)));
 
-        rollButton = new JButton("ROLL DICE");
-        rollButton.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        rollButton.setBackground(new Color(52, 152, 219));
-        rollButton.setForeground(Color.WHITE);
-        rollButton.setFocusPainted(false);
+        rollButton = StyleTheme.createButton("ROLL DICE");
         rollButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-        rollButton.setMaximumSize(new Dimension(240, 60));
-        rollButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
         rollButton.addActionListener(e -> prepareRollDice());
         panel.add(rollButton);
 
-        panel.add(Box.createRigidArea(new Dimension(0, 20)));
+        panel.add(Box.createRigidArea(new Dimension(0, 30)));
 
         diceResultLabel = new JLabel("-");
-        diceResultLabel.setFont(new Font("Segoe UI", Font.BOLD, 80));
+        diceResultLabel.setFont(new Font("Segoe UI", Font.BOLD, 90));
+        diceResultLabel.setForeground(new Color(44, 62, 80));
         diceResultLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         panel.add(diceResultLabel);
 
-        diceInfoLabel = new JLabel("Klik Roll Dice");
+        diceInfoLabel = new JLabel("Giliranmu!");
         diceInfoLabel.setFont(new Font("Segoe UI", Font.ITALIC, 16));
+        diceInfoLabel.setForeground(Color.GRAY);
         diceInfoLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         panel.add(diceInfoLabel);
 
-        panel.add(Box.createRigidArea(new Dimension(0, 20)));
-        
-        // --- VISUAL HINT DIJKSTRA ---
-        hintLabel = new JLabel("Best Path: Calculating...");
-        hintLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        hintLabel.setForeground(new Color(211, 84, 0)); // Warna Oranye Tua
-        hintLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        panel.add(hintLabel);
-        
-        panel.add(Box.createRigidArea(new Dimension(0, 20)));
+        panel.add(Box.createRigidArea(new Dimension(0, 40)));
 
-        turnLabel = new JLabel("Giliran: Player 1");
-        turnLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        turnLabel.setForeground(Color.DARK_GRAY);
+        turnLabel = new JLabel("Player 1");
+        turnLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
         turnLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        turnLabel.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, Color.LIGHT_GRAY));
         panel.add(turnLabel);
 
         panel.add(Box.createVerticalGlue());
 
-        JLabel legendTitle = new JLabel("Daftar Pemain:");
+        JLabel legendTitle = new JLabel("Leaderboard:");
         legendTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
         legendTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
         panel.add(legendTitle);
         panel.add(Box.createRigidArea(new Dimension(0, 10)));
 
         playerListPanel = new JPanel();
-        playerListPanel.setLayout(new GridLayout(0, 1, 5, 5));
-        playerListPanel.setBackground(new Color(248, 249, 250));
+        playerListPanel.setLayout(new GridLayout(0, 1, 8, 8));
+        playerListPanel.setBackground(new Color(248, 250, 252));
         playerListPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        
-        for (Player p : players) {
-            JPanel pRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
-            pRow.setBackground(new Color(240, 240, 240));
-            pRow.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
-            pRow.setMaximumSize(new Dimension(240, 40));
-            
-            JPanel colorBox = new JPanel();
-            colorBox.setPreferredSize(new Dimension(20, 20));
-            colorBox.setBackground(p.getColor());
-            colorBox.setBorder(BorderFactory.createLineBorder(Color.BLACK));
-            JLabel nameLbl = new JLabel(" Player " + p.getId());
-            nameLbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
-            pRow.add(colorBox);
-            pRow.add(nameLbl);
-            playerListPanel.add(pRow);
-        }
+
+        refreshPlayerList();
         panel.add(playerListPanel);
         panel.add(Box.createRigidArea(new Dimension(0, 20)));
-
         return panel;
     }
 
     private void updateTurnUI() {
         if (players.isEmpty()) return;
         Player p = players.get(currentPlayerIndex);
-        turnLabel.setText("Giliran: Player " + p.getId());
-        turnLabel.setForeground(p.getColor()); 
-        
-        // --- HITUNG DIJKSTRA SAAT GILIRAN BERUBAH ---
-        calculateHint(p.getPosition());
+        turnLabel.setText(p.getName());
+        turnLabel.setForeground(p.getColor());
+        refreshPlayerList();
     }
-    
-    // Method baru untuk hitung dan gambar hint
-    private void calculateHint(int startPos) {
-        if (startPos >= 64) {
-            hintLabel.setText("Finish!");
-            boardPanel.setHintPath(new ArrayList<>());
-            return;
-        }
 
-        // Panggil Solver
-        List<Integer> path = DijkstraSolver.getShortestPath(board, startPos);
-        
-        // Update Label
-        // Path size = jumlah kotak yg harus diinjak. Estimasi roll minimal = size / rata-rata dadu?
-        // Tapi secara harfiah, size dari list path Dijkstra di kasus ini adalah jumlah 'langkah/roll' minimal
-        // karena setiap edge weight-nya 1.
-        hintLabel.setText("Min. Roll ke Finish: " + path.size());
-        
-        // Gambar di Board
-        boardPanel.setHintPath(path);
+    private void refreshPlayerList() {
+        if (playerListPanel == null) return;
+        playerListPanel.removeAll();
+
+        List<Player> sortedList = new ArrayList<>(players);
+        sortedList.sort((p1, p2) -> p2.getPosition() - p1.getPosition());
+
+        for (Player p : sortedList) {
+            JPanel pRow = new JPanel(new BorderLayout());
+            pRow.setBackground(Color.WHITE);
+            pRow.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(220, 220, 220), 1),
+                new EmptyBorder(8, 10, 8, 10)
+            ));
+            pRow.setMaximumSize(new Dimension(280, 50));
+
+            JLabel nameLbl = new JLabel(p.getName());
+            nameLbl.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+
+            JLabel posLbl = new JLabel("Pos: " + p.getPosition());
+            posLbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
+            posLbl.setForeground(p.getColor());
+
+            if (p == players.get(currentPlayerIndex)) {
+                pRow.setBorder(BorderFactory.createLineBorder(p.getColor(), 2));
+                pRow.setBackground(new Color(240, 248, 255));
+                nameLbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
+            }
+
+            pRow.add(nameLbl, BorderLayout.WEST);
+            pRow.add(posLbl, BorderLayout.EAST);
+            playerListPanel.add(pRow);
+        }
+        playerListPanel.revalidate();
+        playerListPanel.repaint();
     }
 
     private void prepareRollDice() {
         if (isAnimating) return;
         isAnimating = true;
         rollButton.setEnabled(false);
-        
+
         Player currentPlayer = players.get(currentPlayerIndex);
         int startPos = currentPlayer.getPosition();
-        
+
+        // --- CEK ATURAN PRIMA ---
         if (isPrime(startPos)) {
-            canClimbLadder = true;
-            System.out.println("Start Prima (" + startPos + "). Tangga AKTIF.");
+            canClimbCurrentTurn = true;
+            System.out.println("Start " + startPos + " (PRIMA) -> Tangga ON");
         } else {
-            canClimbLadder = false;
-            System.out.println("Start Biasa (" + startPos + "). Tangga MATI.");
+            canClimbCurrentTurn = false;
+            System.out.println("Start " + startPos + " (BUKAN) -> Tangga OFF");
         }
 
-        SoundManager.play("roll.wav");
+        SoundManager.play("./assets/roll.wav");
         diceInfoLabel.setText("Rolling...");
-        diceResultLabel.setForeground(Color.BLACK);
 
-        Timer rollTimer = new Timer(100, new ActionListener() {
-            int count = 0;
+        final int[] count = {0};
+        Timer rollTimer = new Timer(80, null);
+        rollTimer.addActionListener(e -> {
             Random r = new Random();
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                diceResultLabel.setText(String.valueOf(r.nextInt(6)+1));
-                count++;
-                if (count > 10) {
-                    ((Timer)e.getSource()).stop();
-                    processResult();
-                }
+            diceResultLabel.setText(String.valueOf(r.nextInt(6) + 1));
+            count[0]++;
+            if (count[0] > 12) {
+                rollTimer.stop();
+                processResult();
             }
         });
         rollTimer.start();
@@ -221,109 +213,133 @@ public class GameFrame extends JFrame {
 
     private void processResult() {
         Random rand = new Random();
-        boolean isForward = rand.nextDouble() < 0.7; 
-        
+        boolean isForward = rand.nextDouble() < 0.7;
+
         int steps;
         if (isForward) {
             steps = rand.nextInt(6) + 1;
-            diceResultLabel.setForeground(new Color(39, 174, 96));
+
+            // --- FIX SINKRONISASI DADU ---
             diceResultLabel.setText(String.valueOf(steps));
+
+            diceResultLabel.setForeground(new Color(39, 174, 96));
             diceInfoLabel.setText("Maju " + steps + " langkah");
             diceInfoLabel.setForeground(new Color(39, 174, 96));
             animateMovement(steps, true);
         } else {
-            steps = 1; 
+            steps = 1;
+
+            // --- FIX SINKRONISASI DADU ---
+            diceResultLabel.setText("1");
+
             diceResultLabel.setForeground(new Color(192, 57, 43));
-            diceResultLabel.setText(String.valueOf(steps));
-            diceInfoLabel.setText("Mundur " + steps + " langkah");
+            diceInfoLabel.setText("Mundur 1 langkah");
             diceInfoLabel.setForeground(new Color(192, 57, 43));
             animateMovement(steps, false);
         }
     }
 
+    private int remainingStepsAfterLadder = 0;
+
     private void animateMovement(int stepsToWalk, boolean forward) {
         Player currentPlayer = players.get(currentPlayerIndex);
+        final int[] stepsTaken = {0};
 
-        Timer timer = new Timer(300, null);
-        timer.addActionListener(new ActionListener() {
-            int stepsTaken = 0;
-            
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (stepsTaken >= stepsToWalk) {
-                    timer.stop();
-                    finishTurn(currentPlayer);
+        Timer moveTimer = new Timer(300, null);
+        moveTimer.addActionListener(e -> {
+
+            // Jika selesai melangkah
+            if (stepsTaken[0] >= stepsToWalk) {
+                ((Timer)e.getSource()).stop();
+
+                // Jika ada sisa langkah setelah naik tangga
+                if (remainingStepsAfterLadder > 0) {
+                    int extra = remainingStepsAfterLadder;
+                    remainingStepsAfterLadder = 0;
+                    animateMovement(extra, true); // lanjut jalan ke depan
                     return;
                 }
 
-                SoundManager.play("step.wav"); 
-                if (forward) {
-                    if (currentPlayer.getPosition() >= 64) {
-                        timer.stop(); finishTurn(currentPlayer); return;
-                    }
-                    currentPlayer.moveForward();
-                } else {
-                    if (currentPlayer.getPosition() <= 1) {
-                        timer.stop(); finishTurn(currentPlayer); return;
-                    }
-                    currentPlayer.moveBackward();
-                }
-                
-                boardPanel.repaint();
-                stepsTaken++;
-                
-                int currentPos = currentPlayer.getPosition();
-                Tile currentTile = board.getTileByNumber(currentPos);
-                
-                if (currentTile != null && currentTile.isLadder() && canClimbLadder) {
-                    timer.stop();
-                    int remainingSteps = stepsToWalk - stepsTaken;
-                    diceInfoLabel.setText("Naik Tangga! Sisa: " + remainingSteps);
-                    SoundManager.play("roll.wav"); 
+                finishTurn(currentPlayer);
+                return;
+            }
 
-                    Timer jumpTimer = new Timer(600, evt -> {
-                        currentPlayer.setPosition(currentTile.getDestination());
+            // Gerak 1 langkah
+            SoundManager.play("assets/step.wav");
+
+            if (forward) currentPlayer.moveForward();
+            else currentPlayer.moveBackward();
+
+            int newPos = currentPlayer.getPosition();
+            stepsTaken[0]++;
+
+            boardPanel.repaint();
+            refreshPlayerList();
+
+            // --- CEK TANGGA / papan khusus ---
+            Tile tile = board.getTileByNumber(newPos);
+
+            if (tile != null && tile.isLadder()) {
+
+                if (canClimbCurrentTurn) {
+                    // STOP timer sementara
+                    ((Timer)e.getSource()).stop();
+
+                    diceInfoLabel.setText("Naik tangga!");
+                    diceInfoLabel.setForeground(new Color(39, 174, 96));
+                    SoundManager.play("./assets/roll.wav");
+
+                    int sisa = stepsToWalk - stepsTaken[0];
+                    remainingStepsAfterLadder = sisa; // simpan langkah tersisa
+
+                    // Timer lompat
+                    Timer jumpTimer = new Timer(600, ev -> {
+                        currentPlayer.setPosition(tile.getDestination());
                         boardPanel.repaint();
-                        if (remainingSteps > 0) {
-                             diceInfoLabel.setText("Melanjutkan " + remainingSteps + " langkah...");
-                             animateMovement(remainingSteps, forward);
-                        } else {
-                             finishTurn(currentPlayer);
+
+                        // lanjutkan langkah tersisa
+                        if (remainingStepsAfterLadder > 0) {
+                            int extraSteps = remainingStepsAfterLadder;
+                            remainingStepsAfterLadder = 0;
+
+                            animateMovement(extraSteps, true);
+                            return;
                         }
+
+                        finishTurn(currentPlayer);
                     });
                     jumpTimer.setRepeats(false);
                     jumpTimer.start();
-                } 
+
+                } else {
+                    diceInfoLabel.setText("Tidak bisa naik (bukan start prime)");
+                    diceInfoLabel.setForeground(new Color(231, 76, 60));
+                }
             }
         });
-        timer.start();
+
+        moveTimer.start();
     }
-    
+
+
     private void finishTurn(Player currentPlayer) {
+        // CEK MENANG
         if (currentPlayer.getPosition() == 64) {
-            SoundManager.play("win.wav"); 
-            int response = JOptionPane.showConfirmDialog(this, 
-                "Player " + currentPlayer.getId() + " MENANG!\nMain Lagi?", 
-                "Game Over", JOptionPane.YES_NO_OPTION);
-            if (response == JOptionPane.YES_OPTION) {
-                this.dispose(); 
-                Main.main(null); 
-            } else {
-                System.exit(0);
-            }
+            SoundManager.play("./assets/win.wav");
+            SwingUtilities.invokeLater(() -> showPremiumWinDialog(currentPlayer));
             return;
         }
 
+        // CEK BONUS (misal: jika pos multiple of 5 -> bonus giliran)
         int finalPos = currentPlayer.getPosition();
         if (finalPos % 5 == 0) {
-            diceInfoLabel.setText("Kelipatan 5! MAIN LAGI!");
-            diceInfoLabel.setForeground(Color.MAGENTA);
-            SoundManager.play("start.wav");
+            diceInfoLabel.setText("Bonus Giliran!");
+            diceInfoLabel.setForeground(new Color(155, 89, 182));
+            SoundManager.play("./assets/start.wav");
             isAnimating = false;
             rollButton.setEnabled(true);
-            
-            // Hitung ulang Dijkstra untuk posisi baru
-            calculateHint(finalPos);
+            refreshPlayerList();
+            // pemain tetap mendapat giliran, tidak pindah turn
         } else {
             isAnimating = false;
             rollButton.setEnabled(true);
@@ -335,12 +351,148 @@ public class GameFrame extends JFrame {
         currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
         updateTurnUI();
     }
-    
+
     private boolean isPrime(int n) {
         if (n <= 1) return false;
         for (int i = 2; i <= Math.sqrt(n); i++) {
             if (n % i == 0) return false;
         }
         return true;
+    }
+
+    private void showPremiumWinDialog(Player winner) {
+        JDialog dialog = new JDialog(this, "Victory", true);
+        dialog.setUndecorated(true);
+        dialog.setBackground(new Color(0, 0, 0, 0));
+        dialog.setSize(500, 650);
+
+        JPanel contentPanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                GradientPaint gp = new GradientPaint(0, 0, Color.WHITE, 0, getHeight(), new Color(255, 248, 225));
+                g2.setColor(new Color(255, 248, 225)); // fallback
+                g2.setPaint(gp);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 40, 40);
+                g2.setColor(new Color(255, 215, 0));
+                g2.setStroke(new BasicStroke(3));
+                g2.drawRoundRect(1, 1, getWidth() - 2, getHeight() - 2, 40, 40);
+            }
+        };
+        contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
+        contentPanel.setBorder(new EmptyBorder(40, 40, 40, 40));
+
+        JLabel iconLbl = new JLabel("🏆");
+        iconLbl.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 100));
+        iconLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
+        contentPanel.add(iconLbl);
+
+        JLabel winText = new JLabel("VICTORY!");
+        winText.setFont(new Font("Segoe UI", Font.BOLD, 42));
+        winText.setForeground(new Color(255, 140, 0));
+        winText.setAlignmentX(Component.CENTER_ALIGNMENT);
+        contentPanel.add(winText);
+
+        contentPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        JLabel subText = new JLabel("Congratulations, " + winner.getName() + "!");
+        subText.setFont(new Font("Segoe UI", Font.PLAIN, 18));
+        subText.setForeground(Color.GRAY);
+        subText.setAlignmentX(Component.CENTER_ALIGNMENT);
+        contentPanel.add(subText);
+
+        contentPanel.add(Box.createRigidArea(new Dimension(0, 30)));
+
+        JPanel rankCard = new JPanel();
+        rankCard.setLayout(new BoxLayout(rankCard, BoxLayout.Y_AXIS));
+        rankCard.setBackground(Color.WHITE);
+        rankCard.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(230, 230, 230), 1),
+            new EmptyBorder(15, 15, 15, 15)
+        ));
+
+        List<Player> finalRank = new ArrayList<>(players);
+        finalRank.sort((p1, p2) -> p2.getPosition() - p1.getPosition());
+
+        for (int i = 0; i < finalRank.size(); i++) {
+            Player p = finalRank.get(i);
+            JPanel row = new JPanel(new BorderLayout());
+            row.setOpaque(false);
+            row.setMaximumSize(new Dimension(400, 35));
+            row.setBorder(new EmptyBorder(5, 0, 5, 0));
+
+            JLabel rankL = new JLabel("#" + (i + 1));
+            rankL.setFont(new Font("Segoe UI", Font.BOLD, 16));
+            rankL.setPreferredSize(new Dimension(40, 0));
+
+            JLabel nameL = new JLabel(p.getName());
+            nameL.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+
+            JLabel scoreL = new JLabel(p.getPosition() + " pts");
+            scoreL.setFont(new Font("Segoe UI", Font.BOLD, 16));
+
+            if (i == 0) {
+                rankL.setForeground(new Color(218, 165, 32));
+                nameL.setForeground(new Color(218, 165, 32));
+                scoreL.setForeground(new Color(218, 165, 32));
+            } else {
+                rankL.setForeground(Color.LIGHT_GRAY);
+                scoreL.setForeground(Color.GRAY);
+            }
+
+            row.add(rankL, BorderLayout.WEST);
+            row.add(nameL, BorderLayout.CENTER);
+            row.add(scoreL, BorderLayout.EAST);
+            rankCard.add(row);
+
+            if (i < finalRank.size() - 1) {
+                JSeparator sep = new JSeparator();
+                sep.setForeground(new Color(240, 240, 240));
+                rankCard.add(sep);
+            }
+        }
+        contentPanel.add(rankCard);
+
+        contentPanel.add(Box.createRigidArea(new Dimension(0, 40)));
+
+        JPanel btnPanel = new JPanel(new GridLayout(1, 2, 20, 0));
+        btnPanel.setOpaque(false);
+
+        JButton playBtn = StyleTheme.createButton("MAIN LAGI");
+        playBtn.addActionListener(e -> {
+            dialog.dispose();
+            this.dispose();
+            Main.main(null);
+        });
+
+        JButton exitBtn = new JButton("KELUAR") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(231, 76, 60));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
+                g2.setColor(Color.WHITE);
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 14));
+                FontMetrics fm = g2.getFontMetrics();
+                g2.drawString(getText(), (getWidth() - fm.stringWidth(getText())) / 2,
+                    (getHeight() + fm.getAscent()) / 2 - 4);
+            }
+        };
+        exitBtn.setPreferredSize(new Dimension(0, 45));
+        exitBtn.setFocusPainted(false);
+        exitBtn.setBorderPainted(false);
+        exitBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        exitBtn.addActionListener(e -> System.exit(0));
+
+        btnPanel.add(playBtn);
+        btnPanel.add(exitBtn);
+        contentPanel.add(btnPanel);
+
+        dialog.add(contentPanel);
+        dialog.setLocationRelativeTo(null);
+        dialog.setVisible(true);
     }
 }
