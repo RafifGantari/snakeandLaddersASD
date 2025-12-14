@@ -16,38 +16,30 @@ public class GameFrame extends JFrame {
     private JLabel diceResultLabel;
     private JLabel diceInfoLabel;
     private JLabel turnLabel;
+    private JPanel turnIndicatorPanel; 
 
     private List<Player> players;
     private int currentPlayerIndex = 0;
     private boolean isAnimating = false;
-
-    // STATUS IZIN NAIK TANGGA (Aturan Prima)
     private boolean canClimbCurrentTurn = false;
 
     public GameFrame(List<String> playerNames) {
-        setTitle("Snake & Ladders - Prime Rules Edition");
-        setSize(1100, 900);
+        setTitle("Snake & Ladders - Christmas Edition");
+        setSize(1250, 900);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // Audio (Aman jika file tidak ada)
-        SoundManager.playBackground("./assets/bgm.wav");
-        SoundManager.play("./assets/start.wav");
+        // Audio
+        SoundManager.playBackground("assets/morningMood.wav");
+        SoundManager.play("assets/start.wav");
 
         initPlayersLogic(playerNames);
 
         board = new Board();
         boardPanel = new BoardPanel(board);
+        add(boardPanel, BorderLayout.CENTER);
 
-        // --- NEW: use VideoBackgroundPanel with animated GIF ---
-        VideoBackgroundPanel bgPanel = new VideoBackgroundPanel("./assets/background.gif");
-        // ensure board panel is transparent so background shows through where appropriate
-        boardPanel.setOpaque(false);
-        bgPanel.addForeground(boardPanel);
-
-        add(bgPanel, BorderLayout.CENTER);
-
-        sidePanel = createSidePanel();
+        sidePanel = createModernSidePanel();
         add(sidePanel, BorderLayout.EAST);
 
         updateTurnUI();
@@ -60,83 +52,132 @@ public class GameFrame extends JFrame {
     private void initPlayersLogic(List<String> names) {
         players = new ArrayList<>();
         Color[] colors = {
-            new Color(231, 76, 60),
-            new Color(41, 128, 185),
-            new Color(39, 174, 96),
-            new Color(243, 156, 18),
-            new Color(142, 68, 173),
-            new Color(211, 84, 0)
+            new Color(255, 69, 0), new Color(30, 144, 255),
+            new Color(50, 205, 50), new Color(255, 215, 0),
+            new Color(138, 43, 226), new Color(255, 140, 0)
         };
-
         for (int i = 0; i < names.size(); i++) {
             players.add(new Player(i + 1, names.get(i), colors[i % colors.length]));
         }
     }
 
-    private JPanel createSidePanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setPreferredSize(new Dimension(320, 0));
-        panel.setBackground(new Color(248, 250, 252));
-        panel.setBorder(new EmptyBorder(30, 30, 30, 30));
+    private JPanel createModernSidePanel() {
+        JPanel mainContainer = new JPanel();
+        mainContainer.setLayout(new BoxLayout(mainContainer, BoxLayout.Y_AXIS));
+        mainContainer.setBackground(StyleTheme.SIDEBAR_BG); 
+        mainContainer.setOpaque(true); 
+        mainContainer.setPreferredSize(new Dimension(340, 0));
+        
+        mainContainer.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(0, 2, 0, 0, StyleTheme.GOLD), 
+            new EmptyBorder(30, 25, 30, 25) 
+        ));
 
-        JLabel title = new JLabel("CONTROLS");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        title.setForeground(new Color(44, 62, 80));
+        // HEADER
+        JLabel title = new JLabel("MERRY CHRISTMAS");
+        title.setFont(StyleTheme.fontBold(22));
+        title.setForeground(StyleTheme.SANTA_RED);
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
-        panel.add(title);
-        panel.add(Box.createRigidArea(new Dimension(0, 25)));
+        mainContainer.add(title);
+        
+        mainContainer.add(Box.createRigidArea(new Dimension(0, 30)));
 
-        rollButton = StyleTheme.createButton("ROLL DICE");
-        rollButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-        rollButton.addActionListener(e -> prepareRollDice());
-        panel.add(rollButton);
+        // STATUS
+        JPanel statusCard = StyleTheme.createRoundedPanel(20, StyleTheme.CARD_BG);
+        statusCard.setLayout(new BorderLayout());
+        statusCard.setMaximumSize(new Dimension(280, 75));
+        statusCard.setBorder(new EmptyBorder(10, 15, 10, 15));
+        statusCard.setBackground(StyleTheme.SIDEBAR_BG);
 
-        panel.add(Box.createRigidArea(new Dimension(0, 30)));
-
-        diceResultLabel = new JLabel("-");
-        diceResultLabel.setFont(new Font("Segoe UI", Font.BOLD, 90));
-        diceResultLabel.setForeground(new Color(44, 62, 80));
-        diceResultLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        panel.add(diceResultLabel);
-
-        diceInfoLabel = new JLabel("Giliranmu!");
-        diceInfoLabel.setFont(new Font("Segoe UI", Font.ITALIC, 16));
-        diceInfoLabel.setForeground(Color.GRAY);
-        diceInfoLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        panel.add(diceInfoLabel);
-
-        panel.add(Box.createRigidArea(new Dimension(0, 40)));
+        turnIndicatorPanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                if (!players.isEmpty()) {
+                    g2.setColor(players.get(currentPlayerIndex).getColor());
+                    g2.fillOval(0, 0, 20, 20);
+                }
+            }
+        };
+        turnIndicatorPanel.setPreferredSize(new Dimension(25, 25));
+        turnIndicatorPanel.setOpaque(false);
 
         turnLabel = new JLabel("Player 1");
-        turnLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        turnLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        panel.add(turnLabel);
+        turnLabel.setFont(StyleTheme.fontBold(18));
+        turnLabel.setForeground(StyleTheme.DARK_TEXT);
 
-        panel.add(Box.createVerticalGlue());
+        JLabel statusSub = new JLabel("Giliran Kamu");
+        statusSub.setFont(StyleTheme.font(14));
+        statusSub.setForeground(Color.GRAY);
 
-        JLabel legendTitle = new JLabel("Leaderboard:");
-        legendTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        legendTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
-        panel.add(legendTitle);
-        panel.add(Box.createRigidArea(new Dimension(0, 10)));
+        JPanel textPanel = new JPanel(new GridLayout(2, 1));
+        textPanel.setOpaque(false);
+        textPanel.add(turnLabel);
+        textPanel.add(statusSub);
+
+        statusCard.add(textPanel, BorderLayout.CENTER);
+        statusCard.add(turnIndicatorPanel, BorderLayout.EAST);
+        
+        mainContainer.add(statusCard);
+        mainContainer.add(Box.createRigidArea(new Dimension(0, 40)));
+
+        // DADU
+        diceResultLabel = new JLabel("?");
+        diceResultLabel.setFont(new Font("Segoe UI", Font.BOLD, 90)); 
+        diceResultLabel.setForeground(StyleTheme.PRIMARY);
+        diceResultLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        diceInfoLabel = new JLabel("Klik Roll untuk main");
+        diceInfoLabel.setFont(StyleTheme.font(14));
+        diceInfoLabel.setForeground(Color.GRAY);
+        diceInfoLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        mainContainer.add(diceResultLabel);
+        mainContainer.add(Box.createRigidArea(new Dimension(0, 10)));
+        mainContainer.add(diceInfoLabel);
+        mainContainer.add(Box.createRigidArea(new Dimension(0, 30)));
+
+        // TOMBOL ROLL BESAR (MERAH)
+        rollButton = StyleTheme.createModernButton("PUTAR DADU 🎲", StyleTheme.SANTA_RED);
+        rollButton.setForeground(Color.WHITE);
+        rollButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        rollButton.setPreferredSize(new Dimension(260, 65)); 
+        rollButton.setMaximumSize(new Dimension(260, 65)); 
+        
+        rollButton.addActionListener(e -> prepareRollDice());
+        
+        mainContainer.add(rollButton);
+        mainContainer.add(Box.createRigidArea(new Dimension(0, 40)));
+
+        // LEADERBOARD SEMENTARA (SESSION)
+        JLabel lbTitle = new JLabel("Session Leaderboard");
+        lbTitle.setFont(StyleTheme.fontBold(16));
+        lbTitle.setForeground(StyleTheme.DARK_TEXT);
+        lbTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+        mainContainer.add(lbTitle);
+        mainContainer.add(Box.createRigidArea(new Dimension(0, 10)));
 
         playerListPanel = new JPanel();
-        playerListPanel.setLayout(new GridLayout(0, 1, 8, 8));
-        playerListPanel.setBackground(new Color(248, 250, 252));
-        playerListPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        playerListPanel.setLayout(new BoxLayout(playerListPanel, BoxLayout.Y_AXIS));
+        playerListPanel.setOpaque(false);
+        
+        JScrollPane scrollPane = new JScrollPane(playerListPanel);
+        scrollPane.setBorder(null);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.setOpaque(false);
+        
+        mainContainer.add(scrollPane);
 
-        refreshPlayerList();
-        panel.add(playerListPanel);
-        panel.add(Box.createRigidArea(new Dimension(0, 20)));
-        return panel;
+        return mainContainer;
     }
 
     private void updateTurnUI() {
         if (players.isEmpty()) return;
         Player p = players.get(currentPlayerIndex);
         turnLabel.setText(p.getName());
-        turnLabel.setForeground(p.getColor());
+        if(turnIndicatorPanel != null) turnIndicatorPanel.repaint();
         refreshPlayerList();
     }
 
@@ -148,30 +189,26 @@ public class GameFrame extends JFrame {
         sortedList.sort((p1, p2) -> p2.getPosition() - p1.getPosition());
 
         for (Player p : sortedList) {
-            JPanel pRow = new JPanel(new BorderLayout());
-            pRow.setBackground(Color.WHITE);
-            pRow.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(220, 220, 220), 1),
-                new EmptyBorder(8, 10, 8, 10)
-            ));
-            pRow.setMaximumSize(new Dimension(280, 50));
+            JPanel row = StyleTheme.createRoundedPanel(15, StyleTheme.CARD_BG);
+            row.setLayout(new BorderLayout());
+            row.setMaximumSize(new Dimension(300, 45));
+            row.setBorder(new EmptyBorder(5, 10, 5, 10));
+            row.setBackground(StyleTheme.SIDEBAR_BG);
 
             JLabel nameLbl = new JLabel(p.getName());
-            nameLbl.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+            nameLbl.setFont(StyleTheme.font(13));
+            nameLbl.setForeground(StyleTheme.DARK_TEXT);
+            if(p == players.get(currentPlayerIndex)) nameLbl.setFont(StyleTheme.fontBold(13));
 
-            JLabel posLbl = new JLabel("Pos: " + p.getPosition());
-            posLbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
-            posLbl.setForeground(p.getColor());
+            JLabel statLbl = new JLabel("Pos: " + p.getPosition() + " | Pts: " + p.getScore());
+            statLbl.setFont(StyleTheme.fontBold(13));
+            statLbl.setForeground(p.getColor());
 
-            if (p == players.get(currentPlayerIndex)) {
-                pRow.setBorder(BorderFactory.createLineBorder(p.getColor(), 2));
-                pRow.setBackground(new Color(240, 248, 255));
-                nameLbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
-            }
-
-            pRow.add(nameLbl, BorderLayout.WEST);
-            pRow.add(posLbl, BorderLayout.EAST);
-            playerListPanel.add(pRow);
+            row.add(nameLbl, BorderLayout.WEST);
+            row.add(statLbl, BorderLayout.EAST);
+            
+            playerListPanel.add(row);
+            playerListPanel.add(Box.createRigidArea(new Dimension(0, 10))); 
         }
         playerListPanel.revalidate();
         playerListPanel.repaint();
@@ -183,19 +220,11 @@ public class GameFrame extends JFrame {
         rollButton.setEnabled(false);
 
         Player currentPlayer = players.get(currentPlayerIndex);
-        int startPos = currentPlayer.getPosition();
+        if (isPrime(currentPlayer.getPosition())) canClimbCurrentTurn = true;
+        else canClimbCurrentTurn = false;
 
-        // --- CEK ATURAN PRIMA ---
-        if (isPrime(startPos)) {
-            canClimbCurrentTurn = true;
-            System.out.println("Start " + startPos + " (PRIMA) -> Tangga ON");
-        } else {
-            canClimbCurrentTurn = false;
-            System.out.println("Start " + startPos + " (BUKAN) -> Tangga OFF");
-        }
-
-        SoundManager.play("./assets/roll.wav");
-        diceInfoLabel.setText("Rolling...");
+        SoundManager.play("assets/roll.wav");
+        diceInfoLabel.setText("Mengocok...");
 
         final int[] count = {0};
         Timer rollTimer = new Timer(80, null);
@@ -213,28 +242,20 @@ public class GameFrame extends JFrame {
 
     private void processResult() {
         Random rand = new Random();
-        boolean isForward = rand.nextDouble() < 0.7;
+        boolean isForward = rand.nextDouble() < 0.7; 
 
         int steps;
         if (isForward) {
             steps = rand.nextInt(6) + 1;
-
-            // --- FIX SINKRONISASI DADU ---
             diceResultLabel.setText(String.valueOf(steps));
-
-            diceResultLabel.setForeground(new Color(39, 174, 96));
+            diceResultLabel.setForeground(StyleTheme.SUCCESS);
             diceInfoLabel.setText("Maju " + steps + " langkah");
-            diceInfoLabel.setForeground(new Color(39, 174, 96));
             animateMovement(steps, true);
         } else {
             steps = 1;
-
-            // --- FIX SINKRONISASI DADU ---
             diceResultLabel.setText("1");
-
-            diceResultLabel.setForeground(new Color(192, 57, 43));
+            diceResultLabel.setForeground(StyleTheme.DANGER);
             diceInfoLabel.setText("Mundur 1 langkah");
-            diceInfoLabel.setForeground(new Color(192, 57, 43));
             animateMovement(steps, false);
         }
     }
@@ -247,252 +268,232 @@ public class GameFrame extends JFrame {
 
         Timer moveTimer = new Timer(300, null);
         moveTimer.addActionListener(e -> {
-
-            // Jika selesai melangkah
             if (stepsTaken[0] >= stepsToWalk) {
                 ((Timer)e.getSource()).stop();
-
-                // Jika ada sisa langkah setelah naik tangga
                 if (remainingStepsAfterLadder > 0) {
                     int extra = remainingStepsAfterLadder;
                     remainingStepsAfterLadder = 0;
-                    animateMovement(extra, true); // lanjut jalan ke depan
+                    animateMovement(extra, true);
                     return;
                 }
-
                 finishTurn(currentPlayer);
                 return;
             }
 
-            // Gerak 1 langkah
             SoundManager.play("assets/step.wav");
 
-            if (forward) currentPlayer.moveForward();
-            else currentPlayer.moveBackward();
-
-            int newPos = currentPlayer.getPosition();
+            if (forward) currentPlayer.moveForward(); else currentPlayer.moveBackward();
             stepsTaken[0]++;
 
             boardPanel.repaint();
             refreshPlayerList();
 
-            // --- CEK TANGGA / papan khusus ---
-            Tile tile = board.getTileByNumber(newPos);
-
+            Tile tile = board.getTileByNumber(currentPlayer.getPosition());
             if (tile != null && tile.isLadder()) {
-
                 if (canClimbCurrentTurn) {
-                    // STOP timer sementara
                     ((Timer)e.getSource()).stop();
-
-                    diceInfoLabel.setText("Naik tangga!");
-                    diceInfoLabel.setForeground(new Color(39, 174, 96));
-                    SoundManager.play("./assets/roll.wav");
-
-                    int sisa = stepsToWalk - stepsTaken[0];
-                    remainingStepsAfterLadder = sisa; // simpan langkah tersisa
-
-                    // Timer lompat
+                    diceInfoLabel.setText("Naik Tangga!");
+                    SoundManager.play("assets/roll.wav");
+                    remainingStepsAfterLadder = stepsToWalk - stepsTaken[0];
                     Timer jumpTimer = new Timer(600, ev -> {
                         currentPlayer.setPosition(tile.getDestination());
                         boardPanel.repaint();
-
-                        // lanjutkan langkah tersisa
                         if (remainingStepsAfterLadder > 0) {
                             int extraSteps = remainingStepsAfterLadder;
                             remainingStepsAfterLadder = 0;
-
                             animateMovement(extraSteps, true);
-                            return;
+                        } else {
+                            finishTurn(currentPlayer);
                         }
-
-                        finishTurn(currentPlayer);
                     });
                     jumpTimer.setRepeats(false);
                     jumpTimer.start();
-
                 } else {
-                    diceInfoLabel.setText("Tidak bisa naik (bukan start prime)");
-                    diceInfoLabel.setForeground(new Color(231, 76, 60));
+                    diceInfoLabel.setText("Gagal naik (Bukan Prima)");
                 }
             }
         });
-
         moveTimer.start();
     }
 
-
     private void finishTurn(Player currentPlayer) {
-        // CEK MENANG
+        Tile t = board.getTileByNumber(currentPlayer.getPosition());
+        if (t != null) {
+            int pts = t.getPoints();
+            currentPlayer.addScore(pts);
+            diceInfoLabel.setText("Dapat +" + pts + " Poin!");
+        }
+        refreshPlayerList();
+
+        // --- CEK KEMENANGAN ---
         if (currentPlayer.getPosition() == 64) {
-            SoundManager.play("./assets/win.wav");
+            SoundManager.play("assets/win.wav");
+
+            // --- SIMPAN KEMENANGAN KE DATABASE ---
+            WinDatabase.addWin(currentPlayer.getName());
+            // -------------------------------------
+
             SwingUtilities.invokeLater(() -> showPremiumWinDialog(currentPlayer));
             return;
         }
 
-        // CEK BONUS (misal: jika pos multiple of 5 -> bonus giliran)
-        int finalPos = currentPlayer.getPosition();
-        if (finalPos % 5 == 0) {
-            diceInfoLabel.setText("Bonus Giliran!");
-            diceInfoLabel.setForeground(new Color(155, 89, 182));
-            SoundManager.play("./assets/start.wav");
+        if (currentPlayer.getPosition() % 5 != 0) { 
             isAnimating = false;
             rollButton.setEnabled(true);
-            refreshPlayerList();
-            // pemain tetap mendapat giliran, tidak pindah turn
+            currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
+            updateTurnUI();
         } else {
+            diceInfoLabel.setText("Bonus Giliran!");
             isAnimating = false;
             rollButton.setEnabled(true);
-            nextTurn();
         }
-    }
-
-    private void nextTurn() {
-        currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
-        updateTurnUI();
     }
 
     private boolean isPrime(int n) {
         if (n <= 1) return false;
-        for (int i = 2; i <= Math.sqrt(n); i++) {
-            if (n % i == 0) return false;
-        }
+        for (int i = 2; i <= Math.sqrt(n); i++) if (n % i == 0) return false;
         return true;
     }
 
+    // ==========================================
+    // POP-UP KEMENANGAN MEWAH
+    // ==========================================
     private void showPremiumWinDialog(Player winner) {
         JDialog dialog = new JDialog(this, "Victory", true);
         dialog.setUndecorated(true);
         dialog.setBackground(new Color(0, 0, 0, 0));
-        dialog.setSize(500, 650);
+        dialog.setSize(550, 750); 
 
         JPanel contentPanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                GradientPaint gp = new GradientPaint(0, 0, Color.WHITE, 0, getHeight(), new Color(255, 248, 225));
-                g2.setColor(new Color(255, 248, 225)); // fallback
-                g2.setPaint(gp);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 40, 40);
-                g2.setColor(new Color(255, 215, 0));
-                g2.setStroke(new BasicStroke(3));
-                g2.drawRoundRect(1, 1, getWidth() - 2, getHeight() - 2, 40, 40);
+                g2.setColor(StyleTheme.WARM_WHITE);
+                g2.fillRoundRect(10, 10, getWidth()-20, getHeight()-20, 50, 50);
+                
+                g2.setColor(StyleTheme.GOLD);
+                g2.setStroke(new BasicStroke(6f));
+                g2.drawRoundRect(10, 10, getWidth()-20, getHeight()-20, 50, 50);
+
+                g2.setColor(StyleTheme.SANTA_RED);
+                int ribbonSize = 70;
+                g2.fillArc(10, 10, ribbonSize, ribbonSize, 90, 90);
+                g2.fillArc(getWidth()-10-ribbonSize, 10, ribbonSize, ribbonSize, 0, 90);
             }
         };
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
-        contentPanel.setBorder(new EmptyBorder(40, 40, 40, 40));
+        contentPanel.setBorder(new EmptyBorder(50, 50, 50, 50)); 
+        contentPanel.setOpaque(false);
 
-        JLabel iconLbl = new JLabel("🏆");
-        iconLbl.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 100));
+        JLabel iconLbl = new JLabel("🎄🎅🎄"); 
+        iconLbl.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 80));
         iconLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
         contentPanel.add(iconLbl);
 
         JLabel winText = new JLabel("VICTORY!");
-        winText.setFont(new Font("Segoe UI", Font.BOLD, 42));
-        winText.setForeground(new Color(255, 140, 0));
+        winText.setFont(StyleTheme.fontBold(48));
+        winText.setForeground(StyleTheme.SANTA_RED);
         winText.setAlignmentX(Component.CENTER_ALIGNMENT);
         contentPanel.add(winText);
 
         contentPanel.add(Box.createRigidArea(new Dimension(0, 10)));
 
-        JLabel subText = new JLabel("Congratulations, " + winner.getName() + "!");
-        subText.setFont(new Font("Segoe UI", Font.PLAIN, 18));
-        subText.setForeground(Color.GRAY);
+        JLabel subText = new JLabel("Selamat, " + winner.getName() + "!");
+        subText.setFont(StyleTheme.font(20));
+        subText.setForeground(StyleTheme.DARK_TEXT);
         subText.setAlignmentX(Component.CENTER_ALIGNMENT);
         contentPanel.add(subText);
-
+        
         contentPanel.add(Box.createRigidArea(new Dimension(0, 30)));
 
-        JPanel rankCard = new JPanel();
-        rankCard.setLayout(new BoxLayout(rankCard, BoxLayout.Y_AXIS));
-        rankCard.setBackground(Color.WHITE);
-        rankCard.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(230, 230, 230), 1),
-            new EmptyBorder(15, 15, 15, 15)
-        ));
+        // RANKING (Sesi Ini)
+        JPanel rankContainer = new JPanel();
+        rankContainer.setLayout(new BoxLayout(rankContainer, BoxLayout.Y_AXIS));
+        rankContainer.setOpaque(false);
 
         List<Player> finalRank = new ArrayList<>(players);
-        finalRank.sort((p1, p2) -> p2.getPosition() - p1.getPosition());
+        finalRank.sort((p1, p2) -> p2.getScore() - p1.getScore()); 
 
         for (int i = 0; i < finalRank.size(); i++) {
             Player p = finalRank.get(i);
-            JPanel row = new JPanel(new BorderLayout());
-            row.setOpaque(false);
-            row.setMaximumSize(new Dimension(400, 35));
-            row.setBorder(new EmptyBorder(5, 0, 5, 0));
-
-            JLabel rankL = new JLabel("#" + (i + 1));
-            rankL.setFont(new Font("Segoe UI", Font.BOLD, 16));
-            rankL.setPreferredSize(new Dimension(40, 0));
-
-            JLabel nameL = new JLabel(p.getName());
-            nameL.setFont(new Font("Segoe UI", Font.PLAIN, 16));
-
-            JLabel scoreL = new JLabel(p.getPosition() + " pts");
-            scoreL.setFont(new Font("Segoe UI", Font.BOLD, 16));
-
-            if (i == 0) {
-                rankL.setForeground(new Color(218, 165, 32));
-                nameL.setForeground(new Color(218, 165, 32));
-                scoreL.setForeground(new Color(218, 165, 32));
-            } else {
-                rankL.setForeground(Color.LIGHT_GRAY);
-                scoreL.setForeground(Color.GRAY);
-            }
-
-            row.add(rankL, BorderLayout.WEST);
-            row.add(nameL, BorderLayout.CENTER);
-            row.add(scoreL, BorderLayout.EAST);
-            rankCard.add(row);
-
-            if (i < finalRank.size() - 1) {
-                JSeparator sep = new JSeparator();
-                sep.setForeground(new Color(240, 240, 240));
-                rankCard.add(sep);
-            }
+            JPanel playerCard = createFestiveRankCard(p, i + 1);
+            rankContainer.add(playerCard);
+            rankContainer.add(Box.createRigidArea(new Dimension(0, 10))); 
         }
-        contentPanel.add(rankCard);
+        contentPanel.add(rankContainer);
+        contentPanel.add(Box.createVerticalGlue());
 
-        contentPanel.add(Box.createRigidArea(new Dimension(0, 40)));
-
+        // TOMBOL
         JPanel btnPanel = new JPanel(new GridLayout(1, 2, 20, 0));
         btnPanel.setOpaque(false);
+        btnPanel.setMaximumSize(new Dimension(450, 70)); 
+        btnPanel.setPreferredSize(new Dimension(450, 70));
 
-        JButton playBtn = StyleTheme.createButton("MAIN LAGI");
+        JButton playBtn = StyleTheme.createModernButton("MAIN LAGI", StyleTheme.PINE_GREEN);
+        playBtn.setForeground(Color.WHITE);
+        playBtn.setFont(StyleTheme.fontBold(16));
         playBtn.addActionListener(e -> {
             dialog.dispose();
             this.dispose();
             Main.main(null);
         });
 
-        JButton exitBtn = new JButton("KELUAR") {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(231, 76, 60));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
-                g2.setColor(Color.WHITE);
-                g2.setFont(new Font("Segoe UI", Font.BOLD, 14));
-                FontMetrics fm = g2.getFontMetrics();
-                g2.drawString(getText(), (getWidth() - fm.stringWidth(getText())) / 2,
-                    (getHeight() + fm.getAscent()) / 2 - 4);
-            }
-        };
-        exitBtn.setPreferredSize(new Dimension(0, 45));
-        exitBtn.setFocusPainted(false);
-        exitBtn.setBorderPainted(false);
-        exitBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
+        JButton exitBtn = StyleTheme.createModernButton("KELUAR", StyleTheme.SANTA_RED);
+        exitBtn.setForeground(Color.WHITE);
+        exitBtn.setFont(StyleTheme.fontBold(16));
         exitBtn.addActionListener(e -> System.exit(0));
 
         btnPanel.add(playBtn);
         btnPanel.add(exitBtn);
+        
+        contentPanel.add(Box.createRigidArea(new Dimension(0, 20)));
         contentPanel.add(btnPanel);
 
         dialog.add(contentPanel);
         dialog.setLocationRelativeTo(null);
         dialog.setVisible(true);
+    }
+
+    private JPanel createFestiveRankCard(Player p, int rank) {
+        boolean isWinner = (rank == 1);
+        Color cardBg = isWinner ? new Color(255, 248, 220) : Color.WHITE;
+        Color borderColor = isWinner ? StyleTheme.GOLD : (rank % 2 == 0 ? StyleTheme.SANTA_RED : StyleTheme.PINE_GREEN);
+        String rankIcon = isWinner ? "👑" : (rank == 2 ? "🥈" : (rank == 3 ? "🥉" : "#" + rank));
+
+        JPanel card = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(cardBg);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
+                g2.setColor(borderColor);
+                g2.setStroke(new BasicStroke(isWinner ? 3f : 2f));
+                g2.drawRoundRect(1, 1, getWidth()-2, getHeight()-2, 30, 30);
+            }
+        };
+        card.setOpaque(false);
+        card.setMaximumSize(new Dimension(450, 55));
+        card.setPreferredSize(new Dimension(450, 55));
+        card.setBorder(new EmptyBorder(5, 20, 5, 20));
+
+        JLabel rankLbl = new JLabel(rankIcon);
+        rankLbl.setFont(new Font("Segoe UI Emoji", Font.BOLD, isWinner ? 24 : 18));
+        rankLbl.setPreferredSize(new Dimension(50, 0));
+
+        JLabel nameLbl = new JLabel(p.getName());
+        nameLbl.setFont(StyleTheme.fontBold(18));
+        nameLbl.setForeground(StyleTheme.DARK_TEXT);
+
+        JLabel scoreLbl = new JLabel(p.getScore() + " Pts");
+        scoreLbl.setFont(StyleTheme.fontBold(18));
+        scoreLbl.setForeground(isWinner ? StyleTheme.GOLD.darker() : p.getColor());
+
+        card.add(rankLbl, BorderLayout.WEST);
+        card.add(nameLbl, BorderLayout.CENTER);
+        card.add(scoreLbl, BorderLayout.EAST);
+
+        return card;
     }
 }

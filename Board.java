@@ -17,6 +17,28 @@ public class Board {
             }
         }
         setupLimitedPrimeLadders();
+        setupRandomPoints(); // Setup Poin
+    }
+
+    // --- SETUP POIN (LOGIKA BARU) ---
+    private void setupRandomPoints() {
+        Random rand = new Random();
+        for (int row = 0; row < SIZE; row++) {
+            for (int col = 0; col < SIZE; col++) {
+                Tile t = tiles[row][col];
+                // Start & Finish tidak perlu poin aneh-aneh
+                if (t.getNumber() == 1 || t.getNumber() == 64) continue;
+
+                double chance = rand.nextDouble();
+                if (chance < 0.20) {
+                    t.setPoints(3); // 20% kemungkinan poin 3
+                } else if (chance < 0.45) {
+                    t.setPoints(2); // 25% kemungkinan poin 2
+                } else {
+                    t.setPoints(1); // Sisanya poin 1
+                }
+            }
+        }
     }
 
     private void setupLimitedPrimeLadders() {
@@ -47,6 +69,7 @@ public class Board {
     }
 
     public Tile[][] getTiles() { return tiles; }
+    
     public Tile getTileByNumber(int number) {
         if (number < 1 || number > 64) return null;
         for (int r = 0; r < SIZE; r++) {
