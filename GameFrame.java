@@ -30,7 +30,7 @@ public class GameFrame extends JFrame {
         setLayout(new BorderLayout());
 
         // Audio
-        SoundManager.playBackground("assets/morningMood.wav");
+        SoundManager.playBackground("assets/bgm.wav");
         SoundManager.play("assets/start.wav");
 
         initPlayersLogic(playerNames);
